@@ -1,0 +1,10 @@
+.DS_Store
+.classpath
+.code-workspace
+.idea/
+.idea_modules/
+.metadata
+.project
+.settings/
+.vscode/
+target/
