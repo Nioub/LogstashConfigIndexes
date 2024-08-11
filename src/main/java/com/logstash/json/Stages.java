@@ -1,7 +1,20 @@
 package com.logstash.json;
 
-import java.util.TreeMap;
-
-public class Stages extends TreeMap<String, Stage> {
-	private static final long serialVersionUID = -5450949469668563076L;
+public class Stages {
+	public Stage input = new Stage();
+	public Stage filter = new Stage();
+	public Stage output = new Stage();
+	
+	public Stage getStageFromName(final String stageName) {
+		switch (stageName) {
+		case "input":
+			return input;
+		case "filter":
+			return filter;
+		case "output":
+			return output;
+		default:
+			return null;
+		}
+	}
 }

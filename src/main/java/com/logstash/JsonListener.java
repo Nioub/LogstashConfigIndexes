@@ -5,6 +5,7 @@ import java.util.LinkedList;
 
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.Vocabulary;
+import org.antlr.v4.runtime.misc.Interval;
 import org.antlr.v4.runtime.tree.ErrorNode;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
@@ -29,6 +30,8 @@ import com.logstash.LogStashConfigParser.Stage_conditionContext;
 import com.logstash.LogStashConfigParser.Stage_declarationContext;
 import com.logstash.LogStashConfigParser.Stage_definitionContext;
 import com.logstash.json.ArrayValues;
+import com.logstash.json.Condition;
+import com.logstash.json.ConditionChoice;
 import com.logstash.json.HashValues;
 import com.logstash.json.Plugin;
 import com.logstash.json.PluginAttribute;
@@ -38,15 +41,28 @@ import com.logstash.json.Stages;
 
 public class JsonListener implements LogStashConfigListener {
 	
+	/**
+	 * Disclaimer : this is a proof of concept, code quality is not state of the art.
+	 * 
+	 * Mainly, I'm not so happy about how all this machinery turns out. But it seems to work :)
+	 */
+	
+	/** Result value after parsing */
 	public Stages configStages = null;
+	
+	/** References */
 	
 	private final Vocabulary vocabulary;
 	
+	/** Internal "stack" machinery */
+	
+	private String currentStageName = null;
 	private Stage currentStage = null;
 	private Deque<PluginOrCondition> pluginOrConditionStack = new LinkedList<>();
 	private Deque<PluginAttribute> pluginAttributeStack = new LinkedList<>();
 	private Deque<ArrayValues> arrayValuesStack = new LinkedList<>();
 	private Deque<HashValues> hashValuesStack = new LinkedList<>();
+	private Deque<String> nextConditionTextStack = new LinkedList<>();
 	
 	public JsonListener(final Vocabulary vocabulary) {
 		this.vocabulary = vocabulary;
@@ -74,14 +90,17 @@ public class JsonListener implements LogStashConfigListener {
 
 	@Override
 	public void enterStage_declaration(Stage_declarationContext ctx) {
-		final String currentStageName = ctx.getStart().getText();
-		currentStage = new Stage();
-		configStages.put(currentStageName, currentStage);
+		currentStageName = ctx.getStart().getText();
+		currentStage = configStages.getStageFromName(currentStageName);
+		if (currentStage == null) {
+			throw new RuntimeException("Stage " + currentStageName + " unknown");
+		}
 	}
 
 	@Override
 	public void exitStage_declaration(Stage_declarationContext ctx) {
 		currentStage = null;
+		currentStageName = null;
 	}
 
 	@Override
@@ -94,8 +113,16 @@ public class JsonListener implements LogStashConfigListener {
 	public void enterPlugin_declaration(Plugin_declarationContext ctx) {
 		final String currentPluginName = ctx.getStart().getText();
 		final Plugin currentPlugin = new Plugin(currentPluginName);
+		// Add to root of current stage if not already under another plugin/condition
 		if (pluginOrConditionStack.isEmpty()) {
 			currentStage.add(currentPlugin);
+		} else if (pluginOrConditionStack.peek() instanceof Condition) {
+			//((Condition) pluginOrConditionStack.peek()).conditionChoices.getLast().pluginsOrConditionsList.add(currentPlugin);
+			final ConditionChoice currentConditionChoice  = new ConditionChoice();
+			currentConditionChoice.conditionText = nextConditionTextStack.pop();
+			nextConditionTextStack.push(null);
+			currentConditionChoice.pluginsOrConditionsList.add(currentPlugin);
+			((Condition) pluginOrConditionStack.peek()).conditionChoices.add(currentConditionChoice);
 		}
 		pluginOrConditionStack.push(currentPlugin);
 	}
@@ -103,6 +130,10 @@ public class JsonListener implements LogStashConfigListener {
 	@Override
 	public void exitPlugin_declaration(Plugin_declarationContext ctx) {
 		pluginOrConditionStack.pop();
+		if (pluginOrConditionStack.peek() instanceof Condition) {
+			nextConditionTextStack.pop();
+			nextConditionTextStack.push(null);
+		}
 	}
 
 	@Override
@@ -152,7 +183,7 @@ public class JsonListener implements LogStashConfigListener {
 			hashValuesStack.push(hashValues);
 		} else {
 			// Handle plugin_declaration here?
-			System.out.println(symbolicName);
+			System.out.println(String.format("enterPlugin_attribute_value not handled %d", symbolicName));
 		}
 	}
 
@@ -168,16 +199,42 @@ public class JsonListener implements LogStashConfigListener {
 	}
 
 	@Override
-	public void enterStage_condition(Stage_conditionContext ctx) {}
+	public void enterStage_condition(Stage_conditionContext ctx) {
+		final Condition currentCondition = new Condition();
+		if (pluginOrConditionStack.isEmpty()) {
+			// Add to root of current stage if not already under another plugin/condition
+			currentStage.add(currentCondition);
+		} else if (pluginOrConditionStack.peek() instanceof Condition) {
+			final ConditionChoice currentConditionChoice  = new ConditionChoice();
+			currentConditionChoice.conditionText = nextConditionTextStack.pop();
+			nextConditionTextStack.push(null);
+			currentConditionChoice.pluginsOrConditionsList.add(currentCondition);
+			((Condition) pluginOrConditionStack.peek()).conditionChoices.add(currentConditionChoice);
+		}
+		pluginOrConditionStack.push(currentCondition);
+		nextConditionTextStack.push(null);
+	}
 
 	@Override
-	public void exitStage_condition(Stage_conditionContext ctx) {}
+	public void exitStage_condition(Stage_conditionContext ctx) {
+		pluginOrConditionStack.pop();
+		nextConditionTextStack.pop();
+	}
 
 	@Override
-	public void enterLogical_expression(Logical_expressionContext ctx) {}
+	public void enterLogical_expression(Logical_expressionContext ctx) {
+		// Note : ctx.stop is null, we can only extract expression text on exit
+	}
 
 	@Override
-	public void exitLogical_expression(Logical_expressionContext ctx) {}
+	public void exitLogical_expression(Logical_expressionContext ctx) {
+		if (ctx.parent instanceof Stage_conditionContext) {
+			final Interval wholeExpressionInterval = new Interval(ctx.start.getStartIndex(), ctx.stop.getStopIndex());
+			final String wholeExpressionText = ctx.start.getInputStream().getText(wholeExpressionInterval);
+			nextConditionTextStack.pop();
+			nextConditionTextStack.push(wholeExpressionText);
+		}
+	}
 
 	@Override
 	public void enterNegative_expression(Negative_expressionContext ctx) {}
