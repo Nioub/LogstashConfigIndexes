@@ -95,7 +95,7 @@
           </descriptorRefs>
 	        <archive>
 	          <manifest>
-	            <mainClass>com.logstash.TestParser</mainClass>
+	            <mainClass>com.logstash.ExportJson</mainClass>
 	          </manifest>
 	        </archive>
         </configuration>

@@ -12,7 +12,7 @@ public class BasicTest {
 
 	@Test
 	public void testBasic() throws IOException {
-		final String basic_conf_filepath = "./src/main/resource/basic.conf";
+		final String basic_conf_filepath = "./src/test/resource/basic.conf";
 		
         CharStream input = CharStreams.fromFileName(basic_conf_filepath);
         LogStashConfigLexer lexer = new LogStashConfigLexer(input);

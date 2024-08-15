@@ -1,0 +1,137 @@
+{
+  "input" : [ {
+    "name" : "elasticsearch",
+    "pluginAttributes" : [ {
+      "name" : "hosts",
+      "value" : "${CLUSTER_HOST}"
+    }, {
+      "name" : "user",
+      "value" : "${CLUSTER_USER_READ}"
+    }, {
+      "name" : "password",
+      "value" : "${CLUSTER_MDP_READ}"
+    }, {
+      "name" : "ssl",
+      "value" : "true"
+    }, {
+      "name" : "ca_file",
+      "value" : "/path/to/certificate.pem"
+    }, {
+      "name" : "index",
+      "value" : "${CLUSTER_ELASTIC_INDEX_READ}"
+    }, {
+      "name" : "docinfo",
+      "value" : "true"
+    }, {
+      "name" : "tags",
+      "value" : [ "input_tag" ]
+    }, {
+      "name" : "schedule",
+      "value" : "* 04,12,20 * * * Europe/Paris"
+    }, {
+      "name" : "size",
+      "value" : 1000
+    }, {
+      "name" : "query",
+      "value" : "{\r\n            \"query\": {\r\n                \"bool\": {\r\n                    \"filter\": [\r\n                        {\r\n                            \"range\": {\r\n                                \"@timestamp\": {\r\n                                    \"gte\": \"now-1d\",\r\n                                    \"lte\": \"now\"\r\n                                }\r\n                            }\r\n                        },\r\n                        {\r\n                            \"exists\" : {\r\n                                \"field\" : \"workID\"\r\n                            }\r\n                        }\r\n                    ]\r\n                }\r\n            }\r\n        }"
+    } ]
+  } ],
+  "filter" : [ {
+    "conditionChoices" : [ {
+      "conditionText" : "[numDemande]",
+      "pluginsOrConditionsList" : [ {
+        "name" : "elasticsearch",
+        "pluginAttributes" : [ {
+          "name" : "user",
+          "value" : "${CLUSTER_USER_READ}"
+        }, {
+          "name" : "password",
+          "value" : "${CLUSTER_MDP_READ}"
+        }, {
+          "name" : "hosts",
+          "value" : [ "https://${CLUSTER_HOST}" ]
+        }, {
+          "name" : "index",
+          "value" : "${CLUSTER_ELASTIC_INDEX_FILTER1}"
+        }, {
+          "name" : "ca_file",
+          "value" : "/path/to/certificate.pem"
+        }, {
+          "name" : "query_template",
+          "value" : "${LOGSTASH_PATH_INSTANCE}/parsing/request1.json"
+        }, {
+          "name" : "fields",
+          "value" : "timestamp_cohort"
+        } ]
+      } ]
+    }, {
+      "conditionText" : "[idfunctional]",
+      "pluginsOrConditionsList" : [ {
+        "name" : "elasticsearch",
+        "pluginAttributes" : [ {
+          "name" : "user",
+          "value" : "${CLUSTER_USER_READ}"
+        }, {
+          "name" : "password",
+          "value" : "${CLUSTER_MDP_READ}"
+        }, {
+          "name" : "hosts",
+          "value" : [ "https://${CLUSTER_HOST}" ]
+        }, {
+          "name" : "index",
+          "value" : "${CLUSTER_ELASTIC_INDEX_FILTER2}"
+        }, {
+          "name" : "ca_file",
+          "value" : "/path/to/certificate.pem"
+        }, {
+          "name" : "query_template",
+          "value" : "${LOGSTASH_PATH_INSTANCE}/parsing/request2.json"
+        }, {
+          "name" : "fields",
+          "value" : "timestamp_cohort"
+        } ]
+      } ]
+    }, {
+      "conditionText" : null,
+      "pluginsOrConditionsList" : [ {
+        "name" : "drop",
+        "pluginAttributes" : [ ]
+      } ]
+    } ]
+  }, {
+    "conditionChoices" : [ {
+      "conditionText" : "[toto] and [toto] > 10",
+      "pluginsOrConditionsList" : [ {
+        "conditionChoices" : [ {
+          "conditionText" : "!([titi])",
+          "pluginsOrConditionsList" : [ {
+            "name" : "mutate",
+            "pluginAttributes" : [ {
+              "name" : "add_field",
+              "value" : "not titi"
+            } ]
+          } ]
+        } ]
+      } ]
+    } ]
+  } ],
+  "output" : [ {
+    "name" : "elasticsearch",
+    "pluginAttributes" : [ {
+      "name" : "hosts",
+      "value" : [ "https://${CLUSTER_USER_WRITE}:${CLUSTER_MDP_WRITE}@${CLUSTER_HOST}" ]
+    }, {
+      "name" : "index",
+      "value" : "${CLUSTER_ELASTIC_INDEX_WRITE}-%{+YYYY.MM}"
+    }, {
+      "name" : "ssl",
+      "value" : "true"
+    }, {
+      "name" : "ssl_certificate_verification",
+      "value" : "true"
+    }, {
+      "name" : "cacert",
+      "value" : "/path/to/certificate.pem"
+    } ]
+  } ]
+}
